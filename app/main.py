@@ -1,7 +1,8 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 from app.bigram_model import BigramModel
+from app.embedding_model import EmbeddingModel
 
 app = FastAPI()
 
@@ -16,10 +17,17 @@ corpus = [
 
 bigram_model = BigramModel(corpus)
 
+# Load the spaCy model once at startup (takes a few seconds)
+embedding_model = EmbeddingModel()
+
 
 class TextGenerationRequest(BaseModel):
     start_word: str
     length: int
+
+
+class EmbeddingRequest(BaseModel):
+    word: str = Field(min_length=1, examples=["apple"])
 
 
 @app.get("/")
@@ -31,3 +39,18 @@ def read_root():
 def generate_text(request: TextGenerationRequest):
     generated_text = bigram_model.generate_text(request.start_word, request.length)
     return {"generated_text": generated_text}
+
+
+@app.post("/embedding")
+def get_embedding(request: EmbeddingRequest):
+    embedding = embedding_model.calculate_embedding(request.word)
+    if embedding is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No embedding found for '{request.word}' (not in vocabulary).",
+        )
+    return {
+        "word": request.word,
+        "dimension": len(embedding),
+        "embedding": embedding,
+    }

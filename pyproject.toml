@@ -8,9 +8,11 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "en-core-web-lg",
     "fastapi[standard]>=0.141.1",
     "jupyter>=1.1.1",
     "pydantic>=2.13.5",
+    "spacy>=3.8.16",
     "uvicorn>=0.53.0",
 ]
 
@@ -20,4 +22,7 @@ sps-genai = "sps_genai:main"
 [build-system]
 requires = ["uv_build>=0.12.15,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }
 
