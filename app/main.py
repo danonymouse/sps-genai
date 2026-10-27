@@ -1,10 +1,12 @@
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile  # NEW: File, Query, UploadFile
-from PIL import UnidentifiedImageError  # NEW
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
+from PIL import UnidentifiedImageError
 from pydantic import BaseModel, Field
 
 from app.bigram_model import BigramModel
+from app.digit_generator import DigitGenerator
 from app.embedding_model import EmbeddingModel
-from app.image_classifier import CifarImagePredictor  # NEW
+from app.image_classifier import CifarImagePredictor
 
 app = FastAPI()
 
@@ -17,15 +19,13 @@ corpus = [
     "bigram models are simple but effective",
 ]
 
+# Load each model once at startup
 bigram_model = BigramModel(corpus)
+embedding_model = EmbeddingModel()          # Assignment 1
+image_predictor = CifarImagePredictor()     # Assignment 2
+digit_generator = DigitGenerator()          # Assignment 3
 
-# Load the spaCy model once at startup (takes a few seconds)
-embedding_model = EmbeddingModel()
-
-# NEW: load the trained CNN once at startup
-image_predictor = CifarImagePredictor()
-
-# NEW: the image formats /classify-image accepts
+# The image formats /classify-image accepts
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png"}
 
 
@@ -64,8 +64,14 @@ def get_embedding(request: EmbeddingRequest):
     }
 
 
-# NEW: image classification endpoint (Assignment 2)
-@app.post("/classify-image")
+# Image classification (Assignment 2)
+@app.post(
+    "/classify-image",
+    responses={
+        400: {"description": "Empty or unreadable image file"},
+        415: {"description": "File is not a JPEG or PNG"},
+    },
+)
 async def classify_image(
     file: UploadFile = File(..., description="A JPEG or PNG image"),
     top_k: int = Query(3, ge=1, le=10, description="How many ranked classes to return"),
@@ -87,3 +93,18 @@ async def classify_image(
         "prediction": ranked[0]["label"],
         "top_predictions": ranked,
     }
+
+
+# Handwritten digit generation with the GAN (Assignment 3)
+@app.get(
+    "/generate-digits",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}},
+                     "description": "A PNG grid of generated handwritten digits"}},
+)
+def generate_digits(
+    num_images: int = Query(16, ge=1, le=64, description="How many digits to generate"),
+    seed: int | None = Query(None, description="Optional: the same seed gives the same digits"),
+):
+    png = digit_generator.generate_png(num_images=num_images, seed=seed)
+    return Response(content=png, media_type="image/png")
