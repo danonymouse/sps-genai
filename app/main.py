@@ -7,6 +7,7 @@ from app.bigram_model import BigramModel
 from app.digit_generator import DigitGenerator
 from app.embedding_model import EmbeddingModel
 from app.image_classifier import CifarImagePredictor
+from app.image_generators import DiffusionImageGenerator, EnergyImageGenerator
 
 app = FastAPI()
 
@@ -24,6 +25,8 @@ bigram_model = BigramModel(corpus)
 embedding_model = EmbeddingModel()          # Assignment 1
 image_predictor = CifarImagePredictor()     # Assignment 2
 digit_generator = DigitGenerator()          # Assignment 3
+energy_generator = EnergyImageGenerator()   # Assignment 4
+diffusion_generator = DiffusionImageGenerator()  # Assignment 4
 
 # The image formats /classify-image accepts
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png"}
@@ -107,4 +110,29 @@ def generate_digits(
     seed: int | None = Query(None, description="Optional: the same seed gives the same digits"),
 ):
     png = digit_generator.generate_png(num_images=num_images, seed=seed)
+    return Response(content=png, media_type="image/png")
+
+
+# CIFAR-10 image generation with an energy model and a diffusion model (Assignment 4)
+PNG_RESPONSE = {200: {"content": {"image/png": {}},
+                      "description": "A PNG grid of generated 32x32 images"}}
+
+
+@app.get("/generate-images/energy", response_class=Response, responses=PNG_RESPONSE)
+def generate_energy_images(
+    num_images: int = Query(16, ge=1, le=64, description="How many images to generate"),
+    steps: int = Query(500, ge=1, le=1000, description="Langevin sampling steps (more = more refined)"),
+    seed: int | None = Query(None, description="Optional: the same seed gives the same images"),
+):
+    png = energy_generator.generate_png(num_images=num_images, steps=steps, seed=seed)
+    return Response(content=png, media_type="image/png")
+
+
+@app.get("/generate-images/diffusion", response_class=Response, responses=PNG_RESPONSE)
+def generate_diffusion_images(
+    num_images: int = Query(16, ge=1, le=64, description="How many images to generate"),
+    steps: int = Query(50, ge=1, le=200, description="Reverse diffusion steps (more = cleaner)"),
+    seed: int | None = Query(None, description="Optional: the same seed gives the same images"),
+):
+    png = diffusion_generator.generate_png(num_images=num_images, steps=steps, seed=seed)
     return Response(content=png, media_type="image/png")
